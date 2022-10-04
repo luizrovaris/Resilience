@@ -23,7 +23,7 @@ namespace PoC.Resilience.Controllers
         public async Task<IActionResult> GetAsync()
         {
             HttpClient clientHttp = _clientFactory.CreateClient("MyPoCHttpClient");
-            HttpResponseMessage resp = await clientHttp.GetAsync("status/500");
+            HttpResponseMessage resp = await clientHttp.GetAsync("status/200");
 
             if (resp.IsSuccessStatusCode)
             {
@@ -33,7 +33,7 @@ namespace PoC.Resilience.Controllers
             else
             {
                 _logger.LogInformation("BadRequest");
-                return BadRequest(resp.StatusCode);
+                return StatusCode((int)resp.StatusCode);
             }
         }
     }

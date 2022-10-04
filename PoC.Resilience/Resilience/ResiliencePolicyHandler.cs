@@ -25,8 +25,9 @@ namespace PoC.Resilience.Resilience
            int? circuitBreakerDurationOfBreakMs,
            List<int> circuitBreakerHttpCodes,
            int? timeOutMs,
+           bool faultInjectionEnabled,
            string chaosOperationKey = "",
-           ChaosSettingsConfiguration chaosSettingsConfiguration = null)
+           ChaosSettingsConfiguration chaosSettingsConfiguration = null)        
         {
             List<IAsyncPolicy<HttpResponseMessage>> policies = new();
 
@@ -55,7 +56,7 @@ namespace PoC.Resilience.Resilience
                     }
             }
 
-            if (!string.IsNullOrWhiteSpace(chaosOperationKey) && chaosSettingsConfiguration?.Operations != null)
+            if (faultInjectionEnabled && !string.IsNullOrWhiteSpace(chaosOperationKey) && chaosSettingsConfiguration?.Operations != null)
             {
                 OperationChaosSetting chaosPolicy = chaosSettingsConfiguration.Operations.FirstOrDefault(p => p.OperationKey == chaosOperationKey);
                 if (chaosPolicy != null)
