@@ -7,11 +7,14 @@ using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using PoC.Resilience.Resilience;
 using Polly;
+using Polly.Contrib.Simmy;
+using Polly.Contrib.Simmy.Outcomes;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Mime;
+using System.Threading;
 
 namespace PoC.Resilience
 {
@@ -27,34 +30,17 @@ namespace PoC.Resilience
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            //Policy
-            //    .HandleResult<HttpResponseMessage>(x => x.StatusCode.ToString().StartsWith("5"))
-            //    .CircuitBreaker(2, TimeSpan.FromMinutes(1));
+            services.AddRazorPages();
 
-            ChaosSettingsConfiguration chaosSettingsConfiguration = new()
-            {
-                Operations = new()
-                {
-                    new()
-                    {
-                        OperationKey = "HttpStatus503",
-                        Enabled = true,
-                        InjectionRate = 1,
-                        LatencyMs = 0,
-                        ResponseStatusCode = 503,
-                        ResponseMessage = "Simmy - Erro HTTP 503"
-                    },
-                    new()
-                    {
-                        OperationKey = "HttpStatus500",
-                        Enabled = true,
-                        InjectionRate = 1,
-                        LatencyMs = 0,
-                        ResponseStatusCode = 500,
-                        ResponseMessage = "Simmy - Erro HTTP 500"
-                    }
-                }
-            };
+            bool faultInjectionEnabled = Convert.ToBoolean( Configuration["FaultInjectionEnabled"]);
+
+            ChaosSettingsConfiguration chaosSettingsConfiguration = Configuration
+                .GetSection(nameof(ChaosSettingsConfiguration))
+                .Get<ChaosSettingsConfiguration>();
+
+            MyHttpClientConfig httpConfig = Configuration
+                .GetSection(nameof(MyHttpClientConfig))
+                .Get<MyHttpClientConfig>();
 
             services.AddHttpClient("MyPoCHttpClient", clientConfig =>
             {
@@ -69,13 +55,18 @@ namespace PoC.Resilience
                      })
             .AddPolicyHandler(ResiliencePolicyHandler.GetPolicy(
                 policy: ResiliencePolicyType.CircuitBreaker,
-                waitAndRetryNumberretries: 1,
-                waitAndRetryTimeToNewRequest: 500,
-                circuitBreakerEventsAllowedBeforeBreaking: 2,
-                circuitBreakerDurationOfBreakMs: 30000,
-                circuitBreakerHttpCodes: new List<int>() { 500, 503 },
-                timeOutMs: 30000
-                ));
+                waitAndRetryNumberretries: httpConfig.RetryNumbers,
+                waitAndRetryTimeToNewRequest: httpConfig.WaitAndRetryTimeToNewRequest,
+                circuitBreakerEventsAllowedBeforeBreaking: httpConfig.EventsAllowedBeforeBreaking,
+                circuitBreakerDurationOfBreakMs: httpConfig.DurationOfBreakMs,
+                circuitBreakerHttpCodes: httpConfig.HttpCodes,
+                timeOutMs: httpConfig.TimeOutMs,
+                 faultInjectionEnabled: faultInjectionEnabled,
+                chaosOperationKey : httpConfig.ChaosOperationKey,
+                chaosSettingsConfiguration : chaosSettingsConfiguration
+            ));
+
+
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
